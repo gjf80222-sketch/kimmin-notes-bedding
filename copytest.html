@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>표 복사 테스트</title>
+<style>
+body{font-family:sans-serif;margin:16px;background:#fafafa}
+button{display:block;width:100%;padding:22px 12px;font-size:20px;font-weight:700;
+ margin:14px 0;border:2px solid #03c75a;border-radius:12px;background:#fff;color:#111}
+button:active{background:#e6f9ef}
+#log{padding:12px;font-size:16px;color:#0a7d3b;font-weight:700;min-height:24px}
+table{border-collapse:collapse;width:100%;background:#fff;font-size:14px;margin:8px 0 20px}
+th,td{border:1px solid #bbb;padding:8px}
+th{background:#eef7f1}
+</style>
+</head>
+<body>
+<h2>표 복사 → 네이버 앱 붙여넣기 테스트</h2>
+<div id="log">버튼을 누르면 표가 클립보드에 복사됩니다</div>
+
+<button id="b1" onclick="copyTable('t1','b1')">📋 표1 복사 (소재 비교 3×4)</button>
+<table id="t1">
+<tr><th>소재</th><th>원리</th><th>장점</th><th>단점</th></tr>
+<tr><td>인견</td><td>흡습</td><td>부드럽고 시원</td><td>세탁 수축</td></tr>
+<tr><td>린넨</td><td>통기</td><td>내구성 강함</td><td>거친 촉감</td></tr>
+<tr><td>냉감원사</td><td>접촉냉감</td><td>즉시 시원</td><td>땀에 끈적</td></tr>
+</table>
+
+<button id="b2" onclick="copyPlain('b2')">📄 (대조군) 같은 표를 plain 텍스트로 복사</button>
+
+<script>
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+async function copyTable(id,btn){
+  var el=document.getElementById(id);
+  var html=el.outerHTML;
+  var text=Array.from(el.rows).map(function(r){
+    return Array.from(r.cells).map(function(c){return c.innerText}).join(" | ")
+  }).join("\n");
+  try{
+    if(navigator.clipboard && window.ClipboardItem){
+      var item=new ClipboardItem({
+        "text/html": new Blob([html],{type:"text/html"}),
+        "text/plain": new Blob([text],{type:"text/plain"})
+      });
+      await navigator.clipboard.write([item]);
+      done(btn,"HTML+plain 복사 성공 (ClipboardItem)");
+      return;
+    }
+    throw new Error("no ClipboardItem");
+  }catch(e){
+    // 폴백: contenteditable 선택 후 execCommand("copy") — 리치 클립보드
+    try{
+      var range=document.createRange();
+      range.selectNode(el);
+      var sel=window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+      var ok=document.execCommand("copy");
+      sel.removeAllRanges();
+      done(btn, ok ? "execCommand 리치복사 성공(폴백)" : "복사 실패: "+e.message);
+    }catch(e2){
+      done(btn,"복사 실패: "+e.message+" / "+e2.message);
+    }
+  }
+}
+async function copyPlain(btn){
+  var el=document.getElementById("t1");
+  var text=Array.from(el.rows).map(function(r){
+    return Array.from(r.cells).map(function(c){return c.innerText}).join(" | ")
+  }).join("\n");
+  try{
+    await navigator.clipboard.writeText(text);
+    done(btn,"plain 텍스트 복사 성공");
+  }catch(e){
+    var ta=document.createElement("textarea");
+    ta.value=text; document.body.appendChild(ta);
+    ta.select(); var ok=document.execCommand("copy");
+    ta.remove();
+    done(btn, ok?"plain 복사 성공(폴백)":"plain 복사 실패");
+  }
+}
+function done(btn,msg){
+  document.getElementById("log").textContent="✅ "+msg;
+  document.getElementById(btn).style.background="#c8f2da";
+  document.title="COPIED";   /* adb에서 성공 감지용 */
+}
+</script>
+</body>
+</html>
